@@ -1,0 +1,108 @@
+version: "3.9"
+
+services:
+  object-storage:
+    image: quay.io/minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+
+  database:
+    image: surrealdb/surrealdb:latest
+    ports:
+      - "8000:8000"
+    user: "1000"
+    command: start --user root --pass root
+
+  cloud-ui:
+    image: ghcr.io/takanotaiga/mlops-cloud-ui:main
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      # Public (client) envs used in the browser
+      NEXT_PUBLIC_SURREAL_URL: ws://database:8000/rpc
+      NEXT_PUBLIC_SURREAL_NS: mlops
+      NEXT_PUBLIC_SURREAL_DB: cloud_ui
+      NEXT_PUBLIC_SURREAL_USER: root
+      NEXT_PUBLIC_SURREAL_PASS: root
+
+      # Server-side Surreal connection
+      SURREAL_URL: ws://database:8000/rpc
+      SURREAL_NS: mlops
+      SURREAL_DB: cloud_ui
+      SURREAL_USER: root
+      SURREAL_PASS: root
+
+      # Server-side MinIO/S3 connection
+      MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
+      MINIO_REGION: us-east-1
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MINIO_BUCKET: mlops-datasets
+      MINIO_FORCE_PATH_STYLE: "true"
+
+      # Use PutObject below this size (bytes); above uses multipart
+      S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
+
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  mlx-backend:
+    image: taigatakano/mlops-cloud-backend-mlx:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu", "video"]
+    shm_size: 32G
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      SURREAL_URL: ws://database:8000/rpc
+      SURREAL_NS: mlops
+      SURREAL_DB: cloud_ui
+      SURREAL_USER: root
+      SURREAL_PASS: root
+      MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
+      MINIO_REGION: us-east-1
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MINIO_BUCKET: mlops-datasets
+      MINIO_FORCE_PATH_STYLE: "true"
+      S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
+      POLL_INTERVAL: "5"
+    restart: unless-stopped
+
+  cv-backend:
+    image: taigatakano/mlops-cloud-backend-cv:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu", "video"]
+    shm_size: 32G
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      SURREAL_URL: ws://database:8000/rpc
+      SURREAL_NS: mlops
+      SURREAL_DB: cloud_ui
+      SURREAL_USER: root
+      SURREAL_PASS: root
+      MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
+      MINIO_REGION: us-east-1
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MINIO_BUCKET: mlops-datasets
+      MINIO_FORCE_PATH_STYLE: "true"
+      S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
+      POLL_INTERVAL: "5"
+    restart: unless-stopped
