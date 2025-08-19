@@ -87,7 +87,7 @@ services:
     restart: unless-stopped
 
   cv-backend:
-    image: taigatakano/mlops-cloud-backend-cv:latest
+    image: ghcr.io/takanotaiga/mlops-cloud-backend-cv:main
     deploy:
       resources:
         reservations:
@@ -111,6 +111,25 @@ services:
       MINIO_FORCE_PATH_STYLE: "true"
       S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
       POLL_INTERVAL: "5"
+    restart: unless-stopped
+
+  hm-backend:
+    image: ghcr.io/takanotaiga/mlops-cloud-backend-hm:main
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    shm_size: 32G
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      SURREAL_URL: ws://database:8000/rpc
+      SURREAL_NS: mlops
+      SURREAL_DB: cloud_ui
+      SURREAL_USER: root
+      SURREAL_PASS: root
     restart: unless-stopped
 
 volumes:
