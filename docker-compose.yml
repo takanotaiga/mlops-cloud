@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
 
   cloud-ui:
-    image: ghcr.io/takanotaiga/mlops-cloud-ui:main
+    image: ghcr.io/takanotaiga/mlops-cloud-ui:sha-f76dc31
     depends_on:
       - database
       - object-storage
@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   mlx-backend:
-    image: taigatakano/mlops-cloud-backend-mlx:latest
+    image: taigatakano/mlops-cloud-backend-mlx:v1.4.1
     deploy:
       resources:
         reservations:
@@ -87,7 +87,7 @@ services:
     restart: unless-stopped
 
   cv-backend:
-    image: ghcr.io/takanotaiga/mlops-cloud-backend-cv:main
+    image: ghcr.io/takanotaiga/mlops-cloud-backend-cv:sha-ca27cc8
     deploy:
       resources:
         reservations:
@@ -114,7 +114,7 @@ services:
     restart: unless-stopped
 
   hm-backend:
-    image: ghcr.io/takanotaiga/mlops-cloud-backend-hm:main
+    image: ghcr.io/takanotaiga/mlops-cloud-backend-hm:sha-ca27cc8
     deploy:
       resources:
         reservations:
