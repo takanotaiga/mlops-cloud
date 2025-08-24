@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   mlx-backend:
-    image: taigatakano/mlops-cloud-backend-mlx:v1.5.1
+    image: taigatakano/mlops-cloud-backend-mlx:v1.5
     deploy:
       resources:
         reservations:
