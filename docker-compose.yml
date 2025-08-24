@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   mlx-backend:
-    image: taigatakano/mlops-cloud-backend-mlx:v1.5
+    image: taigatakano/mlops-cloud-backend-mlx:v1.5.1
     deploy:
       resources:
         reservations:
@@ -88,7 +88,7 @@ services:
     restart: unless-stopped
 
   cv-backend:
-    image: ghcr.io/takanotaiga/mlops-cloud-backend-cv:sha-9b95a61
+    image: ghcr.io/takanotaiga/mlops-cloud-backend-cv:sha-218e6d6
     deploy:
       resources:
         reservations:
@@ -134,7 +134,7 @@ services:
     restart: unless-stopped
 
   cm-backend:
-    image: ghcr.io/takanotaiga/mlops-cloud-backend-cm:sha-9b95a61
+    image: ghcr.io/takanotaiga/mlops-cloud-backend-cm:sha-218e6d6
     shm_size: 32G
     depends_on:
       - database
