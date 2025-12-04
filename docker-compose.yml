@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
 
   cloud-ui:
-    image: ghcr.io/takanotaiga/mlops-cloud-ui:main
+    image: ghcr.io/takanotaiga/mlops-cloud-ui:sha-751e555
     depends_on:
       - database
       - object-storage
