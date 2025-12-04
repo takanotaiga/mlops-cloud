@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   mlx-backend:
-    image: taigatakano/mlops-cloud-backend-gpu:main
+    image: taigatakano/mlops-cloud-backend-gpu:sha-8101a7d
     deploy:
       resources:
         reservations:
@@ -89,7 +89,7 @@ services:
     command: ["uv", "run", "/workspace/src/ml_inference_manager.py"]
 
   cv-backend:
-    image: taigatakano/mlops-cloud-backend-gpu:main
+    image: taigatakano/mlops-cloud-backend-gpu:sha-8101a7d
     deploy:
       resources:
         reservations:
@@ -118,7 +118,7 @@ services:
     command: ["uv", "run", "/workspace/src/video_manager.py"]
 
   hm-backend:
-    image: taigatakano/mlops-cloud-backend-base:main
+    image: taigatakano/mlops-cloud-backend-base:sha-8101a7d
     deploy:
       resources:
         reservations:
@@ -138,7 +138,7 @@ services:
     command: ["uv", "run", "/app/hardware_metrics_manager.py"]
 
   cm-backend:
-    image: taigatakano/mlops-cloud-backend-base:main
+    image: taigatakano/mlops-cloud-backend-base:sha-8101a7d
     shm_size: 32G
     depends_on:
       - database
@@ -161,7 +161,7 @@ services:
     command: ["uv", "run", "/app/cleaner_manager.py"]
 
   terminal-manager:
-    image: taigatakano/mlops-cloud-backend-base:main
+    image: taigatakano/mlops-cloud-backend-base:sha-8101a7d
     ports:
       - "8765:8765"
     tty: true
