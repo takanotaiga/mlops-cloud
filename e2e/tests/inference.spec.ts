@@ -43,6 +43,8 @@ test("creates an inference job from a seeded video dataset", async ({ page }) =>
     taskType: "one-shot-object-detection",
     model: "samurai-ulr",
     modelSource: "internet",
+    inferenceBackend: "tensorrt-fp16",
+    rtdetrEpochs: 4,
     datasets: [dataset],
   });
 });

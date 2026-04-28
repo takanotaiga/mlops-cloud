@@ -18,6 +18,12 @@ x-backend-env: &backend-env
   <<: [*surreal-env, *s3-env]
   POLL_INTERVAL: "5"
   KEEP_WORK_DIR: "0"
+  RTDETR_BASE_MODEL: "rtdetr-l.pt"
+  RTDETR_PRETRAINED: "1"
+  RTDETR_EPOCHS: "12"
+  RTDETR_IMGSZ: "640"
+  RTDETR_INFER_CONF: "0.25"
+  RTDETR_EXPORT_TRT: "0"
 
 x-build-gpu: &build-gpu
   context: ../../mlops-cloud-backend
@@ -124,5 +130,5 @@ services:
       - -lc
       - |
           set -eu
-          uv pip install pytest
+          uv pip install pytest pandas pyarrow
           uv run pytest -q tests_phase4
