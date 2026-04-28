@@ -1,0 +1,212 @@
+x-surreal-env: &surreal-env
+  SURREAL_URL: ws://database:8000/rpc
+  SURREAL_NS: mlops
+  SURREAL_DB: cloud_ui
+  SURREAL_USER: root
+  SURREAL_PASS: root
+
+x-s3-env: &s3-env
+  MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
+  MINIO_REGION: us-east-1
+  MINIO_ACCESS_KEY_ID: minioadmin
+  MINIO_SECRET_ACCESS_KEY: minioadmin
+  MINIO_BUCKET: mlops-datasets
+  MINIO_FORCE_PATH_STYLE: "true"
+  S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
+
+x-backend-common-env: &backend-common-env
+  <<: [*surreal-env, *s3-env]
+  POLL_INTERVAL: "5"
+
+x-backend-src-gpu: &backend-src-gpu
+  - ../mlops-cloud-backend/backend_module:/workspace/src/backend_module
+  - ../mlops-cloud-backend/query:/workspace/src/query
+  - ../mlops-cloud-backend/ml_module:/workspace/src/ml_module
+  - ../mlops-cloud-backend/video_manager.py:/workspace/src/video_manager.py
+  - ../mlops-cloud-backend/ml_inference_manager.py:/workspace/src/ml_inference_manager.py
+  - ../mlops-cloud-backend/cleaner_manager.py:/workspace/src/cleaner_manager.py
+  - ../mlops-cloud-backend/hardware_metrics_manager.py:/workspace/src/hardware_metrics_manager.py
+  - ../mlops-cloud-backend/terminal_manager.py:/workspace/src/terminal_manager.py
+
+x-backend-src-base: &backend-src-base
+  - ../mlops-cloud-backend/backend_module:/app/backend_module
+  - ../mlops-cloud-backend/query:/app/query
+  - ../mlops-cloud-backend/ml_module:/app/ml_module
+  - ../mlops-cloud-backend/video_manager.py:/app/video_manager.py
+  - ../mlops-cloud-backend/ml_inference_manager.py:/app/ml_inference_manager.py
+  - ../mlops-cloud-backend/cleaner_manager.py:/app/cleaner_manager.py
+  - ../mlops-cloud-backend/hardware_metrics_manager.py:/app/hardware_metrics_manager.py
+  - ../mlops-cloud-backend/terminal_manager.py:/app/terminal_manager.py
+
+x-build-cloud-ui: &build-cloud-ui
+  context: ../mlops-cloud-ui
+  dockerfile: Dockerfile
+
+x-build-backend-gpu: &build-backend-gpu
+  context: ../mlops-cloud-backend
+  dockerfile: Dockerfile.gpu
+
+x-build-backend-base: &build-backend-base
+  context: ../mlops-cloud-backend
+  dockerfile: Dockerfile.base
+
+services:
+  object-storage:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    tmpfs:
+      - /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+
+  database:
+    image: surrealdb/surrealdb:v2.3
+    user: "0:0"
+    command: start --user root --pass root memory
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  cloud-ui:
+    image: mlops-cloud-ui:dev
+    pull_policy: build
+    build: *build-cloud-ui
+    working_dir: /workspace
+    depends_on:
+      - database
+      - object-storage
+    stdin_open: true
+    tty: true
+    environment:
+      <<: [*surreal-env, *s3-env]
+      NEXT_PUBLIC_SURREAL_URL: ws://database:8000/rpc
+      NEXT_PUBLIC_SURREAL_NS: mlops
+      NEXT_PUBLIC_SURREAL_DB: cloud_ui
+      NEXT_PUBLIC_SURREAL_USER: root
+      NEXT_PUBLIC_SURREAL_PASS: root
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: "1"
+      CHOKIDAR_USEPOLLING: "1"
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ../mlops-cloud-ui:/workspace
+      - cloud-ui-node-modules:/workspace/node_modules
+      - cloud-ui-next-cache:/workspace/.next
+    ports:
+      - "3000:3000"
+    command:
+      - sh
+      - -lc
+      - |
+          set -eu
+          HASH_FILE="node_modules/.package-lock.sha256"
+          CURRENT_HASH="$(sha256sum package-lock.json | awk '{ print $1 }')"
+          INSTALLED_HASH=""
+          if [ -f "$${HASH_FILE}" ]; then
+            INSTALLED_HASH="$$(cat "$${HASH_FILE}")"
+          fi
+
+          if [ ! -d node_modules ] || [ "$${CURRENT_HASH}" != "$${INSTALLED_HASH}" ]; then
+            npm ci
+            mkdir -p node_modules
+            echo "$${CURRENT_HASH}" > "$${HASH_FILE}"
+          fi
+
+          npm run dev -- --hostname 0.0.0.0 --port 3000
+    restart: unless-stopped
+
+  mlx-backend:
+    image: mlops-cloud-backend-gpu:dev
+    pull_policy: build
+    build: *build-backend-gpu
+    profiles: ["gpu"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu", "video"]
+    shm_size: 32G
+    tty: true
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      <<: *backend-common-env
+    volumes: *backend-src-gpu
+    command: ["uv", "run", "/workspace/src/ml_inference_manager.py"]
+    restart: unless-stopped
+
+  cv-backend:
+    image: mlops-cloud-backend-gpu:dev
+    pull_policy: build
+    build: *build-backend-gpu
+    profiles: ["gpu"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu", "video"]
+    shm_size: 32G
+    tty: true
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      <<: *backend-common-env
+    volumes: *backend-src-gpu
+    command: ["uv", "run", "/workspace/src/video_manager.py"]
+    restart: unless-stopped
+
+  hm-backend:
+    image: mlops-cloud-backend-base:dev
+    pull_policy: build
+    build: *build-backend-base
+    shm_size: 32G
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      <<: *surreal-env
+    volumes: *backend-src-base
+    command: ["uv", "run", "/app/hardware_metrics_manager.py"]
+    restart: unless-stopped
+
+  cm-backend:
+    image: mlops-cloud-backend-base:dev
+    pull_policy: build
+    build: *build-backend-base
+    shm_size: 32G
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      <<: *backend-common-env
+    volumes: *backend-src-base
+    command: ["uv", "run", "/app/cleaner_manager.py"]
+    restart: unless-stopped
+
+  terminal-manager:
+    image: mlops-cloud-backend-base:dev
+    pull_policy: build
+    build: *build-backend-base
+    tty: true
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      TERMINAL_WS_HOST: 0.0.0.0
+      TERMINAL_WS_PORT: "8765"
+    volumes: *backend-src-base
+    ports:
+      - "8765:8765"
+    command: ["uv", "run", "/app/terminal_manager.py"]
+    restart: unless-stopped
+
+volumes:
+  cloud-ui-node-modules:
+  cloud-ui-next-cache:

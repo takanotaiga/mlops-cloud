@@ -1,0 +1,85 @@
+services:
+  object-storage:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    tmpfs:
+      - /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+
+  database:
+    image: surrealdb/surrealdb:v2.3
+    user: "0:0"
+    command: start --user root --pass root memory
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  cloud-ui:
+    image: mlops-cloud-ui:e2e
+    pull_policy: build
+    build:
+      context: ../../mlops-cloud-ui
+      dockerfile: Dockerfile
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      NEXT_PUBLIC_SURREAL_URL: ws://database:8000/rpc
+      NEXT_PUBLIC_SURREAL_NS: mlops_e2e
+      NEXT_PUBLIC_SURREAL_DB: cloud_ui
+      NEXT_PUBLIC_SURREAL_USER: root
+      NEXT_PUBLIC_SURREAL_PASS: root
+      SURREAL_URL: ws://database:8000/rpc
+      SURREAL_NS: mlops_e2e
+      SURREAL_DB: cloud_ui
+      SURREAL_USER: root
+      SURREAL_PASS: root
+      MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
+      MINIO_REGION: us-east-1
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MINIO_BUCKET: mlops-e2e
+      MINIO_FORCE_PATH_STYLE: "true"
+      S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  e2e:
+    image: mlops-cloud-e2e:phase1
+    pull_policy: build
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - cloud-ui
+      - database
+      - object-storage
+    environment:
+      BASE_URL: http://cloud-ui:3000
+      SURREAL_URL: ws://database:8000/rpc
+      SURREAL_NS: mlops_e2e
+      SURREAL_DB: cloud_ui
+      SURREAL_USER: root
+      SURREAL_PASS: root
+      MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
+      MINIO_REGION: us-east-1
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MINIO_BUCKET: mlops-e2e
+      MINIO_FORCE_PATH_STYLE: "true"
+      CI: "1"
+    command:
+      - npx
+      - playwright
+      - test
+      - tests/health.spec.ts
+      - tests/dataset.spec.ts
+      - tests/inference.spec.ts
+      - tests/security.spec.ts
