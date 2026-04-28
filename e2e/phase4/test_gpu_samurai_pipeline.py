@@ -130,6 +130,8 @@ def test_real_samurai_ulr_gpu_pipeline_to_hls_and_ui(db, s3, fixture_video: Path
                 taskType: 'one-shot-object-detection',
                 model: 'samurai-ulr',
                 modelSource: 'internet',
+                inferenceBackend: 'pytorch-fp32',
+                rtdetrEpochs: 4,
                 datasets: [$DATASET],
                 createdAt: time::now(),
                 updatedAt: time::now()
