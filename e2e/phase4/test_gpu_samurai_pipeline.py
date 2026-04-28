@@ -1,7 +1,9 @@
 import os
+import tempfile
 import time
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import requests
 
@@ -29,6 +31,41 @@ def _wait_for(predicate, *, timeout: int, interval: int = 10, label: str):
             return last
         time.sleep(interval)
     raise AssertionError(f"Timed out waiting for {label}; last={last!r}")
+
+
+def _meta(row: dict) -> dict:
+    meta = row.get("meta")
+    return meta if isinstance(meta, dict) else {}
+
+
+def _artifact_description(row: dict) -> str:
+    return str(_meta(row).get("description") or "")
+
+
+def _download_parquet(s3, key: str) -> pd.DataFrame:
+    with tempfile.NamedTemporaryFile(suffix=".parquet") as tmp:
+        s3.s3.download_file(s3.bucket, key, tmp.name)
+        return pd.read_parquet(tmp.name)
+
+
+def _assert_bbox_rows(
+    df: pd.DataFrame,
+    *,
+    label: str,
+    source: str,
+    min_positive_ratio: float = 0.95,
+) -> None:
+    assert not df.empty, f"{source} parquet must contain at least one detection row"
+    for column in ["frame_index", "label", "x", "y", "w", "h"]:
+        assert column in df.columns, f"{source} parquet is missing column: {column}"
+    assert set(df["label"].dropna().astype(str)) == {label}
+    assert (df["frame_index"].astype(int) >= 0).all()
+    positive_bbox = (df["w"].astype(float) > 0) & (df["h"].astype(float) > 0)
+    assert positive_bbox.any(), f"{source} parquet has no positive-size bbox rows"
+    assert positive_bbox.mean() >= min_positive_ratio, (
+        f"{source} positive bbox ratio is too low: "
+        f"{positive_bbox.mean():.3f} < {min_positive_ratio:.3f}"
+    )
 
 
 def test_real_samurai_ulr_gpu_pipeline_to_hls_and_ui(db, s3, fixture_video: Path):
@@ -115,16 +152,43 @@ def test_real_samurai_ulr_gpu_pipeline_to_hls_and_ui(db, s3, fixture_video: Path
         assert steps.get(key) == "completed"
 
     results = _rows(db, "SELECT * FROM inference_result WHERE job = <record> $JOB;", {"JOB": job_id})
-    artifacts = {((r.get("meta") or {}).get("artifact")): r for r in results}
-    assert "plot_video" in artifacts
-    assert "results_parquet" in artifacts
+    artifact_names = {str(_meta(r).get("artifact")) for r in results}
+    assert "plot_video" in artifact_names
+    assert "results_parquet" in artifact_names
     if require_schema_json:
-        assert "schema_json" in artifacts
+        assert "schema_json" in artifact_names
 
     for result in results:
         assert object_exists(s3, result["key"]) is True
 
-    plot_result_id = str(artifacts["plot_video"]["id"])
+    sam2_parquets = [
+        r for r in results
+        if _meta(r).get("artifact") == "results_parquet"
+        and "SAM2" in _artifact_description(r)
+    ]
+    assert sam2_parquets, f"SAM2 results parquet was not registered: {results!r}"
+    sam2_df = _download_parquet(s3, sam2_parquets[0]["key"])
+    _assert_bbox_rows(sam2_df, label="object", source="SAM2", min_positive_ratio=0.90)
+
+    rtdetr_parquets = [
+        r for r in results
+        if _meta(r).get("artifact") == "results_parquet"
+        and "最終推論結果" in _artifact_description(r)
+    ]
+    assert rtdetr_parquets, f"RT-DETR final parquet was not registered: {results!r}"
+    rtdetr_df = _download_parquet(s3, rtdetr_parquets[0]["key"])
+    _assert_bbox_rows(rtdetr_df, label="object", source="RT-DETR", min_positive_ratio=0.90)
+    assert "conf" in rtdetr_df.columns
+    assert rtdetr_df["conf"].notna().all()
+    assert (rtdetr_df["conf"].astype(float) >= 0).all()
+
+    rtdetr_plot_videos = [
+        r for r in results
+        if _meta(r).get("artifact") == "plot_video"
+        and "RT-DETR" in _artifact_description(r)
+    ]
+    assert rtdetr_plot_videos, f"RT-DETR plot video was not registered: {results!r}"
+    plot_result_id = str(rtdetr_plot_videos[0]["id"])
 
     def hls_ready():
         playlists = _rows(db, "SELECT * FROM hls_playlist WHERE file = <record> $FILE;", {"FILE": plot_result_id})
