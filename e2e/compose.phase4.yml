@@ -1,0 +1,128 @@
+x-surreal-env: &surreal-env
+  SURREAL_URL: ws://database:8000/rpc
+  SURREAL_NS: mlops_phase4
+  SURREAL_DB: cloud_gpu
+  SURREAL_USER: root
+  SURREAL_PASS: root
+
+x-s3-env: &s3-env
+  MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
+  MINIO_REGION: us-east-1
+  MINIO_ACCESS_KEY_ID: minioadmin
+  MINIO_SECRET_ACCESS_KEY: minioadmin
+  MINIO_BUCKET: mlops-phase4
+  MINIO_FORCE_PATH_STYLE: "true"
+  S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
+
+x-backend-env: &backend-env
+  <<: [*surreal-env, *s3-env]
+  POLL_INTERVAL: "5"
+  KEEP_WORK_DIR: "0"
+
+x-build-gpu: &build-gpu
+  context: ../../mlops-cloud-backend
+  dockerfile: Dockerfile.gpu
+
+services:
+  object-storage:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    tmpfs:
+      - /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+
+  database:
+    image: surrealdb/surrealdb:v2.3
+    user: "0:0"
+    command: start --user root --pass root memory
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  cloud-ui:
+    image: mlops-cloud-ui:phase4
+    pull_policy: build
+    build:
+      context: ../../mlops-cloud-ui
+      dockerfile: Dockerfile
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      <<: [*surreal-env, *s3-env]
+      NEXT_PUBLIC_SURREAL_URL: ws://database:8000/rpc
+      NEXT_PUBLIC_SURREAL_NS: mlops_phase4
+      NEXT_PUBLIC_SURREAL_DB: cloud_gpu
+      NEXT_PUBLIC_SURREAL_USER: root
+      NEXT_PUBLIC_SURREAL_PASS: root
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  mlx-backend:
+    image: mlops-cloud-backend-gpu:phase4
+    pull_policy: build
+    build: *build-gpu
+    gpus: all
+    shm_size: 32G
+    tty: true
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      <<: *backend-env
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+    command: ["uv", "run", "/workspace/src/ml_inference_manager.py"]
+    restart: unless-stopped
+
+  cv-backend:
+    image: mlops-cloud-backend-gpu:phase4
+    pull_policy: build
+    build: *build-gpu
+    gpus: all
+    shm_size: 32G
+    tty: true
+    depends_on:
+      - database
+      - object-storage
+    environment:
+      <<: *backend-env
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+    command: ["uv", "run", "/workspace/src/video_manager.py"]
+    restart: unless-stopped
+
+  phase4-test:
+    image: mlops-cloud-backend-base:phase4-test
+    pull_policy: build
+    build:
+      context: ../../mlops-cloud-backend
+      dockerfile: Dockerfile.base
+    depends_on:
+      - cloud-ui
+      - mlx-backend
+      - cv-backend
+      - database
+      - object-storage
+    environment:
+      <<: [*surreal-env, *s3-env]
+      BASE_URL: http://cloud-ui:3000
+      PHASE4_TIMEOUT_SECONDS: "3600"
+      PHASE4_REQUIRE_SCHEMA_JSON: "0"
+    volumes:
+      - ./phase4:/app/tests_phase4:ro
+      - ./fixtures:/fixtures:ro
+    command:
+      - sh
+      - -lc
+      - |
+          set -eu
+          uv pip install pytest
+          uv run pytest -q tests_phase4
