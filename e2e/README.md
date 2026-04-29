@@ -54,6 +54,8 @@ Covered areas:
 - cleaner dead-file and orphan-annotation DB/S3 cleanup
 - inference runner validation for zero, multiple, no-video, multiple-video, and valid single-video dataset inputs
 - hardware metric CPU/GPU record shape, including a mocked NVML GPU
+- inference job log persistence and per-job filtering
+- inference job log archival to S3 `.log` files in fixed-size chunks while keeping only the DB tail
 
 ## Phase 3 System E2E
 
@@ -69,6 +71,8 @@ docker compose -f e2e/compose.phase3.yml down -v
 Builds `mlx-backend` and `cv-backend` from `../../mlops-cloud-backend/Dockerfile.gpu`, starts GPU-enabled `hm-backend`, seeds one video plus a SAM2 bbox annotation, runs the real `samurai-ulr` inference pipeline, and verifies:
 
 - CPU and GPU hardware metrics are recorded in `hardware_metric`
+- MLX/CV console output is persisted in `inference_job_log` and scoped to the running inference job
+- long-running logs can be archived as `inference_job_log_archive` `.log` chunks in S3
 - `inference_job.status` reaches `Completed`
 - major progress steps complete
 - inference result video and parquet artifacts are registered in DB and exist in S3

@@ -20,6 +20,8 @@ TABLES = [
     "hls_segment",
     "hardware_metric",
     "inference_result",
+    "inference_job_log_archive",
+    "inference_job_log",
     "inference_job",
     "label",
     "merge_group",

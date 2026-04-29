@@ -135,6 +135,14 @@ def test_real_samurai_ulr_gpu_pipeline_to_hls_and_ui(db, s3, fixture_video: Path
     for row in [*hls["playlists"], *hls["segments"]]:
         assert object_exists(s3, row["key"]) is True
 
+    logs = _rows(
+        db,
+        "SELECT source, stream, message, createdAt, seq FROM inference_job_log WHERE job = <record> $JOB ORDER BY createdAt ASC, seq ASC;",
+        {"JOB": job_id},
+    )
+    assert any(row.get("source") == "mlx" and "started" in str(row.get("message", "")) for row in logs)
+    assert any(row.get("source") == "cv" and "hls_job" in str(row.get("message", "")) for row in logs)
+
     base_url = os.getenv("BASE_URL", "http://cloud-ui:3000")
     for path in ["/api/status", "/inference/opened-job", "/inference/opened-job/analysis"]:
         response = requests.get(f"{base_url}{path}", timeout=30)
