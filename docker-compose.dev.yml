@@ -26,7 +26,6 @@ x-backend-src-gpu: &backend-src-gpu
   - ../mlops-cloud-backend/ml_inference_manager.py:/workspace/src/ml_inference_manager.py
   - ../mlops-cloud-backend/cleaner_manager.py:/workspace/src/cleaner_manager.py
   - ../mlops-cloud-backend/hardware_metrics_manager.py:/workspace/src/hardware_metrics_manager.py
-  - ../mlops-cloud-backend/terminal_manager.py:/workspace/src/terminal_manager.py
 
 x-backend-src-base: &backend-src-base
   - ../mlops-cloud-backend/backend_module:/app/backend_module
@@ -36,7 +35,6 @@ x-backend-src-base: &backend-src-base
   - ../mlops-cloud-backend/ml_inference_manager.py:/app/ml_inference_manager.py
   - ../mlops-cloud-backend/cleaner_manager.py:/app/cleaner_manager.py
   - ../mlops-cloud-backend/hardware_metrics_manager.py:/app/hardware_metrics_manager.py
-  - ../mlops-cloud-backend/terminal_manager.py:/app/terminal_manager.py
 
 x-build-cloud-ui: &build-cloud-ui
   context: ../mlops-cloud-ui
@@ -188,23 +186,6 @@ services:
       <<: *backend-common-env
     volumes: *backend-src-base
     command: ["uv", "run", "/app/cleaner_manager.py"]
-    restart: unless-stopped
-
-  terminal-manager:
-    image: mlops-cloud-backend-base:dev
-    pull_policy: build
-    build: *build-backend-base
-    tty: true
-    depends_on:
-      - database
-      - object-storage
-    environment:
-      TERMINAL_WS_HOST: 0.0.0.0
-      TERMINAL_WS_PORT: "8765"
-    volumes: *backend-src-base
-    ports:
-      - "8765:8765"
-    command: ["uv", "run", "/app/terminal_manager.py"]
     restart: unless-stopped
 
 volumes:
