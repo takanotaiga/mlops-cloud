@@ -5,7 +5,7 @@ MLOps Cloud の統合 compose / E2E リポジトリです。アプリ本体の�
 | Path | Role |
 |---|---|
 | `../mlops-cloud-ui` | Next.js UI and API routes |
-| `../mlops-cloud-backend` | Python workers for HLS, inference, cleaner, metrics, terminal |
+| `../mlops-cloud-backend` | Python workers for HLS, inference, cleaner, metrics |
 | `../mlops-cloud-updater` | Release/update helper |
 | `e2e/` | Compose-based E2E tests |
 
@@ -44,7 +44,6 @@ docker compose -f docker-compose.dev.yml down
 | http://localhost:8000 | SurrealDB |
 | http://localhost:9000 | MinIO S3 API |
 | http://localhost:9001 | MinIO Console |
-| ws://localhost:8765 | terminal-manager |
 
 Default local credentials:
 
@@ -87,7 +86,7 @@ Phase4 requires NVIDIA container runtime and a compatible GPU.
 
 ## Current E2E Notes
 
-- Phase1 currently reports `6 passed, 3 skipped`.
+- Phase1 currently reports `7 passed, 3 skipped`.
 - Skipped Phase1 tests are `test.fixme` for unsettled UI/training constraints:
   - multiple dataset inference rejection
   - dataset video count rejection

@@ -75,3 +75,16 @@ test("DB proxy only accepts allowlisted operations with validated input", async 
   });
   expect(allowed).toEqual({ status: 200, ok: true });
 });
+
+test("removed terminal and in-app docs routes are not exposed", async ({ page, request }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/dataset$/);
+
+  await expect(page.getByRole("link", { name: /terminal/i })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /docs/i })).toHaveCount(0);
+
+  for (const path of ["/terminal", "/docs", "/docs/user", "/docs/developer"]) {
+    const response = await request.get(path);
+    expect(response.status(), `${path} should not be routable`).toBe(404);
+  }
+});

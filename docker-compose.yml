@@ -160,17 +160,6 @@ services:
     restart: unless-stopped
     command: ["uv", "run", "/app/cleaner_manager.py"]
 
-  terminal-manager:
-    image: taigatakano/mlops-cloud-backend-base:main
-    ports:
-      - "8765:8765"
-    tty: true
-    environment:
-      TERMINAL_WS_HOST: 0.0.0.0
-      TERMINAL_WS_PORT: "8765"
-    restart: unless-stopped
-    command: ["uv", "run", "/app/terminal_manager.py"]
-
 volumes:
   minio-data:
   surrealdb-data:

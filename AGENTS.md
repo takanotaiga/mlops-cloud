@@ -71,7 +71,7 @@ Phase4 は NVIDIA container runtime と十分な GPU リソースが必要です
 
 ## 現在の期待値
 
-- Phase1: `6 passed, 3 skipped`
+- Phase1: `7 passed, 3 skipped`
 - Phase2: skip なし
 - Phase3: skip なし
 - Phase4: skip なし。ただし GPU 環境依存

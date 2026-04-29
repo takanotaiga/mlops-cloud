@@ -20,7 +20,7 @@ docker compose -f e2e/compose.phase1.yml up --build --abort-on-container-exit --
 docker compose -f e2e/compose.phase1.yml down -v
 ```
 
-Current expected result: `6 passed, 3 skipped`.
+Current expected result: `7 passed, 3 skipped`.
 
 Executed tests include:
 
@@ -29,6 +29,7 @@ Executed tests include:
 - dataset/object soft delete
 - inference job creation from a seeded video dataset
 - `/api/db/query` security allowlist behavior
+- removed `/terminal` and `/docs*` routes are not exposed
 
 Skipped tests are `test.fixme` for unsettled product behavior:
 
