@@ -23,6 +23,10 @@ x-build-gpu: &build-gpu
   context: ../../mlops-cloud-backend
   dockerfile: Dockerfile.gpu
 
+x-build-base: &build-base
+  context: ../../mlops-cloud-backend
+  dockerfile: Dockerfile.base
+
 services:
   object-storage:
     image: minio/minio:RELEASE.2025-07-23T15-54-02Z
@@ -99,6 +103,20 @@ services:
     command: ["uv", "run", "/workspace/src/video_manager.py"]
     restart: unless-stopped
 
+  hm-backend:
+    image: mlops-cloud-backend-base:phase4
+    pull_policy: build
+    build: *build-base
+    gpus: all
+    depends_on:
+      - database
+    environment:
+      <<: *surreal-env
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility
+    command: ["uv", "run", "/app/hardware_metrics_manager.py"]
+    restart: unless-stopped
+
   phase4-test:
     image: mlops-cloud-backend-base:phase4-test
     pull_policy: build
@@ -109,6 +127,7 @@ services:
       - cloud-ui
       - mlx-backend
       - cv-backend
+      - hm-backend
       - database
       - object-storage
     environment:

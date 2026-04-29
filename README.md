@@ -92,6 +92,8 @@ Phase4 requires NVIDIA container runtime and a compatible GPU.
   - dataset video count rejection
   - training creation disabled/preview without a worker
 - Security tests for `/api/db/query` run and should pass.
+- Phase3 checks CPU hardware metrics from `hm-backend`.
+- Phase4 checks GPU hardware metrics from GPU-enabled `hm-backend`.
 - Phase2/3/4 are expected to have no skips when their environment requirements are met.
 
 ## Image Policy

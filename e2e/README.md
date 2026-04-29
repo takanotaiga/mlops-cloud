@@ -53,10 +53,11 @@ Covered areas:
 - HLS and inference job status transitions
 - cleaner dead-file and orphan-annotation DB/S3 cleanup
 - inference runner validation for zero, multiple, no-video, multiple-video, and valid single-video dataset inputs
+- hardware metric CPU/GPU record shape, including a mocked NVML GPU
 
 ## Phase 3 System E2E
 
-Builds `cloud-ui`, starts SurrealDB and MinIO, and runs a smoke check against `/api/status`, `/`, `/dataset`, and `/inference`.
+Builds `cloud-ui` and the base backend image, starts SurrealDB, MinIO, and `hm-backend`, then checks `/api/status`, `/`, `/dataset`, `/inference`, and CPU hardware metrics in `hardware_metric`.
 
 ```bash
 docker compose -f e2e/compose.phase3.yml up --build --abort-on-container-exit --exit-code-from system-e2e system-e2e
@@ -65,8 +66,9 @@ docker compose -f e2e/compose.phase3.yml down -v
 
 ## Phase 4 GPU E2E
 
-Builds `mlx-backend` and `cv-backend` from `../../mlops-cloud-backend/Dockerfile.gpu`, seeds one video plus a SAM2 bbox annotation, runs the real `samurai-ulr` inference pipeline, and verifies:
+Builds `mlx-backend` and `cv-backend` from `../../mlops-cloud-backend/Dockerfile.gpu`, starts GPU-enabled `hm-backend`, seeds one video plus a SAM2 bbox annotation, runs the real `samurai-ulr` inference pipeline, and verifies:
 
+- CPU and GPU hardware metrics are recorded in `hardware_metric`
 - `inference_job.status` reaches `Completed`
 - major progress steps complete
 - inference result video and parquet artifacts are registered in DB and exist in S3

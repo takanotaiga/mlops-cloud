@@ -164,12 +164,19 @@ services:
     image: mlops-cloud-backend-base:dev
     pull_policy: build
     build: *build-backend-base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu", "utility"]
     shm_size: 32G
     depends_on:
       - database
       - object-storage
     environment:
       <<: *surreal-env
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility
     volumes: *backend-src-base
     command: ["uv", "run", "/app/hardware_metrics_manager.py"]
     restart: unless-stopped

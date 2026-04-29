@@ -1,3 +1,10 @@
+x-surreal-env: &surreal-env
+  SURREAL_URL: ws://database:8000/rpc
+  SURREAL_NS: mlops_phase3
+  SURREAL_DB: cloud_ui
+  SURREAL_USER: root
+  SURREAL_PASS: root
+
 services:
   object-storage:
     image: minio/minio:RELEASE.2025-07-23T15-54-02Z
@@ -30,16 +37,12 @@ services:
       - database
       - object-storage
     environment:
+      <<: *surreal-env
       NEXT_PUBLIC_SURREAL_URL: ws://database:8000/rpc
       NEXT_PUBLIC_SURREAL_NS: mlops_phase3
       NEXT_PUBLIC_SURREAL_DB: cloud_ui
       NEXT_PUBLIC_SURREAL_USER: root
       NEXT_PUBLIC_SURREAL_PASS: root
-      SURREAL_URL: ws://database:8000/rpc
-      SURREAL_NS: mlops_phase3
-      SURREAL_DB: cloud_ui
-      SURREAL_USER: root
-      SURREAL_PASS: root
       MINIO_ENDPOINT_INTERNAL: http://object-storage:9000
       MINIO_REGION: us-east-1
       MINIO_ACCESS_KEY_ID: minioadmin
@@ -51,6 +54,19 @@ services:
       - "3000:3000"
     restart: unless-stopped
 
+  hm-backend:
+    image: mlops-cloud-backend-base:phase3
+    pull_policy: build
+    build:
+      context: ../../mlops-cloud-backend
+      dockerfile: Dockerfile.base
+    depends_on:
+      - database
+    environment:
+      <<: *surreal-env
+    command: ["uv", "run", "/app/hardware_metrics_manager.py"]
+    restart: unless-stopped
+
   system-e2e:
     image: mlops-cloud-e2e:phase3
     pull_policy: build
@@ -59,9 +75,11 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - cloud-ui
+      - hm-backend
       - database
       - object-storage
     environment:
+      <<: *surreal-env
       BASE_URL: http://cloud-ui:3000
       CI: "1"
     command: ["npx", "playwright", "test", "tests/system.spec.ts"]

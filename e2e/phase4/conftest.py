@@ -21,6 +21,7 @@ TABLES = [
     "hls_segment",
     "inference_result",
     "inference_job",
+    "hardware_metric",
     "label",
     "merge_group",
     "file",
