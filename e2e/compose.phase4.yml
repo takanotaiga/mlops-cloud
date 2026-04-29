@@ -18,6 +18,9 @@ x-backend-env: &backend-env
   <<: [*surreal-env, *s3-env]
   POLL_INTERVAL: "5"
   KEEP_WORK_DIR: "0"
+  T260_RFDETR_VARIANT: ${T260_RFDETR_VARIANT:-nano}
+  T260_RFDETR_BATCH_SIZE: ${T260_RFDETR_BATCH_SIZE:-1}
+  T260_RFDETR_GRAD_ACCUM_STEPS: ${T260_RFDETR_GRAD_ACCUM_STEPS:-1}
 
 x-build-gpu: &build-gpu
   context: ../../mlops-cloud-backend
@@ -36,17 +39,12 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     tmpfs:
       - /data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     restart: unless-stopped
 
   database:
     image: surrealdb/surrealdb:v2.3
     user: "0:0"
     command: start --user root --pass root memory
-    ports:
-      - "8000:8000"
     restart: unless-stopped
 
   cloud-ui:
@@ -65,8 +63,6 @@ services:
       NEXT_PUBLIC_SURREAL_DB: cloud_gpu
       NEXT_PUBLIC_SURREAL_USER: root
       NEXT_PUBLIC_SURREAL_PASS: root
-    ports:
-      - "3000:3000"
     restart: unless-stopped
 
   mlx-backend:
@@ -135,6 +131,8 @@ services:
       BASE_URL: http://cloud-ui:3000
       PHASE4_TIMEOUT_SECONDS: "3600"
       PHASE4_REQUIRE_SCHEMA_JSON: "0"
+      PHASE4_MODEL: ${PHASE4_MODEL:-samurai-ulr}
+      PHASE4_RTDETR_EPOCHS: ${PHASE4_RTDETR_EPOCHS:-1}
     volumes:
       - ./phase4:/app/tests_phase4:ro
       - ./fixtures:/fixtures:ro

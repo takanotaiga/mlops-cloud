@@ -34,6 +34,9 @@ def _wait_for(predicate, *, timeout: int, interval: int = 10, label: str):
 def test_real_samurai_ulr_gpu_pipeline_to_hls_and_ui(db, s3, fixture_video: Path):
     timeout = int(os.getenv("PHASE4_TIMEOUT_SECONDS", "3600"))
     require_schema_json = os.getenv("PHASE4_REQUIRE_SCHEMA_JSON", "0").lower() in {"1", "true", "yes", "on"}
+    model = os.getenv("PHASE4_MODEL", "samurai-ulr")
+    assert model in {"samurai-ulr", "t260-ulr"}
+    epochs = int(os.getenv("PHASE4_RTDETR_EPOCHS", "1"))
     dataset = f"phase4-gpu-{int(time.time())}"
     video_key = f"{dataset}/input/test-video.mp4"
 
@@ -91,14 +94,16 @@ def test_real_samurai_ulr_gpu_pipeline_to_hls_and_ui(db, s3, fixture_video: Path
                 dead: false,
                 status: 'ProcessWaiting',
                 taskType: 'one-shot-object-detection',
-                model: 'samurai-ulr',
+                model: $MODEL,
                 modelSource: 'internet',
+                inferenceBackend: 'pytorch-fp16',
+                rtdetrEpochs: $EPOCHS,
                 datasets: [$DATASET],
                 createdAt: time::now(),
                 updatedAt: time::now()
             };
             """,
-            {"NAME": f"phase4-samurai-{int(time.time())}", "DATASET": dataset},
+            {"NAME": f"phase4-{model}-{int(time.time())}", "MODEL": model, "EPOCHS": epochs, "DATASET": dataset},
         )
     )
 
@@ -108,7 +113,7 @@ def test_real_samurai_ulr_gpu_pipeline_to_hls_and_ui(db, s3, fixture_video: Path
             raise AssertionError(f"GPU inference job failed early: {row}")
         return row if row and row.get("status") == "Completed" else None
 
-    job = _wait_for(completed_job, timeout=timeout, interval=15, label="samurai inference completion")
+    job = _wait_for(completed_job, timeout=timeout, interval=15, label=f"{model} inference completion")
     assert job["status"] == "Completed"
     steps = {s.get("key"): s.get("state") for s in (job.get("progress") or {}).get("steps", []) if isinstance(s, dict)}
     for key in ["download", "preprocess", "sam2", "dataset_export", "rtdetr_train", "rtdetr_infer", "postprocess", "upload"]:

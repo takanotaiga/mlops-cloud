@@ -20,7 +20,7 @@ docker compose -f e2e/compose.phase1.yml up --build --abort-on-container-exit --
 docker compose -f e2e/compose.phase1.yml down -v
 ```
 
-Current expected result: `7 passed, 3 skipped`.
+Current expected result: `8 passed, 3 skipped`.
 
 Executed tests include:
 
@@ -68,7 +68,7 @@ docker compose -f e2e/compose.phase3.yml down -v
 
 ## Phase 4 GPU E2E
 
-Builds `mlx-backend` and `cv-backend` from `../../mlops-cloud-backend/Dockerfile.gpu`, starts GPU-enabled `hm-backend`, seeds one video plus a SAM2 bbox annotation, runs the real `samurai-ulr` inference pipeline, and verifies:
+Builds `mlx-backend` and `cv-backend` from `../../mlops-cloud-backend/Dockerfile.gpu`, starts GPU-enabled `hm-backend`, seeds one video plus a SAM2 bbox annotation, runs the real `samurai-ulr` inference pipeline by default, and verifies:
 
 - CPU and GPU hardware metrics are recorded in `hardware_metric`
 - MLX/CV console output is persisted in `inference_job_log` and scoped to the running inference job
@@ -92,6 +92,7 @@ Optional overrides:
 ```bash
 PHASE4_TIMEOUT_SECONDS=7200 docker compose -f e2e/compose.phase4.yml up --build --abort-on-container-exit --exit-code-from phase4-test phase4-test
 PHASE4_REQUIRE_SCHEMA_JSON=1 docker compose -f e2e/compose.phase4.yml up --build --abort-on-container-exit --exit-code-from phase4-test phase4-test
+PHASE4_MODEL=t260-ulr PHASE4_RTDETR_EPOCHS=1 T260_RFDETR_VARIANT=nano docker compose -f e2e/compose.phase4.yml up --build --abort-on-container-exit --exit-code-from phase4-test phase4-test
 ```
 
 ## Cleanup
