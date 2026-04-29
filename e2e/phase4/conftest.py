@@ -20,6 +20,8 @@ TABLES = [
     "hls_playlist",
     "hls_segment",
     "inference_result",
+    "inference_job_log_archive",
+    "inference_job_log",
     "inference_job",
     "hardware_metric",
     "label",
