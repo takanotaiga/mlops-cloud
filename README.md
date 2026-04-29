@@ -1,30 +1,33 @@
 # MLOps Cloud
 
+MLOps Cloud の統合 compose / E2E リポジトリです。アプリ本体の実装は兄弟リポジトリにあります。
+
+| Path | Role |
+|---|---|
+| `../mlops-cloud-ui` | Next.js UI and API routes |
+| `../mlops-cloud-backend` | Python workers for HLS, inference, cleaner, metrics, terminal |
+| `../mlops-cloud-updater` | Release/update helper |
+| `e2e/` | Compose-based E2E tests |
+
 ## Development Compose
 
-`docker-compose.dev.yml` はローカル開発向けの構成です。
+`docker-compose.dev.yml` はローカル開発向けです。
 
-- `../mlops-cloud-ui` と `../mlops-cloud-backend` をコンテナへマウント
-- `mlops-cloud-*` 系サービス（UI/Backend）はローカルの Dockerfile から build
-- `surrealdb` / `minio` は通常どおり pull
-- SurrealDB は `memory` モードで起動
-- MinIO は `tmpfs` (`/data`) を使って起動
-- `cloud-ui` は `npm run dev` で起動（TTY + stdin open）
-
-上記により、DB/Object Storage のデータはコンテナ起動ごとにリセットされます。
-
-## 起動方法
-
-`mlops-cloud` ディレクトリで実行:
+- UI/backend source をコンテナへ mount
+- MLOps Cloud app images はローカル Dockerfile から build
+- SurrealDB は `memory`
+- MinIO は `tmpfs`
+- 起動ごとに DB/Object Storage はリセット
+- UI は `npm run dev` で起動し、TTY/stdin を有効化
 
 ```bash
-docker compose -f docker-compose.dev.yml up
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-GPU ワーカー (`mlx-backend`, `cv-backend`) も起動する場合:
+GPU worker も起動する場合:
 
 ```bash
-docker compose -f docker-compose.dev.yml --profile gpu up
+docker compose -f docker-compose.dev.yml --profile gpu up --build
 ```
 
 停止:
@@ -33,12 +36,68 @@ docker compose -f docker-compose.dev.yml --profile gpu up
 docker compose -f docker-compose.dev.yml down
 ```
 
-## Phase 1 E2E
+## Service URLs
 
-UI E2E tests live in `e2e/`.
+| URL | Service |
+|---|---|
+| http://localhost:3000 | cloud-ui |
+| http://localhost:8000 | SurrealDB |
+| http://localhost:9000 | MinIO S3 API |
+| http://localhost:9001 | MinIO Console |
+| ws://localhost:8765 | terminal-manager |
+
+Default local credentials:
+
+- SurrealDB: `root` / `root`, namespace `mlops`, database `cloud_ui`
+- MinIO: `minioadmin` / `minioadmin`, bucket `mlops-datasets`
+
+## E2E
+
+All E2E lives under `e2e/`. See `../E2E_TEST_RUNBOOK.md` for detailed operation notes.
+
+Phase1 UI:
 
 ```bash
 docker compose -f e2e/compose.phase1.yml up --build --abort-on-container-exit --exit-code-from e2e e2e
+docker compose -f e2e/compose.phase1.yml down -v
 ```
 
-The E2E compose builds `cloud-ui` from `../mlops-cloud-ui/Dockerfile` and builds the test runner from `e2e/Dockerfile`. SurrealDB and MinIO use disposable in-memory/tmpfs storage.
+Phase2 backend integration:
+
+```bash
+docker compose -f e2e/compose.phase2.yml up --build --abort-on-container-exit --exit-code-from backend-test backend-test
+docker compose -f e2e/compose.phase2.yml down -v
+```
+
+Phase3 system smoke:
+
+```bash
+docker compose -f e2e/compose.phase3.yml up --build --abort-on-container-exit --exit-code-from system-e2e system-e2e
+docker compose -f e2e/compose.phase3.yml down -v
+```
+
+Phase4 GPU pipeline:
+
+```bash
+docker compose -f e2e/compose.phase4.yml up --build --abort-on-container-exit --exit-code-from phase4-test phase4-test
+docker compose -f e2e/compose.phase4.yml down -v
+```
+
+Phase4 requires NVIDIA container runtime and a compatible GPU.
+
+## Current E2E Notes
+
+- Phase1 currently reports `6 passed, 3 skipped`.
+- Skipped Phase1 tests are `test.fixme` for unsettled UI/training constraints:
+  - multiple dataset inference rejection
+  - dataset video count rejection
+  - training creation disabled/preview without a worker
+- Security tests for `/api/db/query` run and should pass.
+- Phase2/3/4 are expected to have no skips when their environment requirements are met.
+
+## Image Policy
+
+- `cloud-ui` builds from `../mlops-cloud-ui/Dockerfile`.
+- backend base services build from `../mlops-cloud-backend/Dockerfile.base`.
+- GPU services build from `../mlops-cloud-backend/Dockerfile.gpu`.
+- SurrealDB / MinIO / Playwright base images are pulled.
