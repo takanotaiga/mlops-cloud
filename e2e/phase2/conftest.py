@@ -18,6 +18,7 @@ TABLES = [
     "hls_job",
     "hls_playlist",
     "hls_segment",
+    "hardware_metric",
     "inference_result",
     "inference_job",
     "label",

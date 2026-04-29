@@ -47,7 +47,7 @@ export async function queryRows<T = any>(sql: string, vars?: Record<string, unkn
 
 export async function resetDb(): Promise<void> {
   await withDb(async (client) => {
-    for (const table of ["annotation", "label", "inference_job", "training_job", "hls_job", "hls_playlist", "hls_segment", "merge_group", "file"]) {
+    for (const table of ["annotation", "label", "inference_job", "training_job", "hls_job", "hls_playlist", "hls_segment", "merge_group", "hardware_metric", "file"]) {
       await client.query(`DELETE ${table}`);
     }
   });
