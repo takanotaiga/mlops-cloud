@@ -14,17 +14,12 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     tmpfs:
       - /data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     restart: unless-stopped
 
   database:
     image: surrealdb/surrealdb:v2.3
     user: "0:0"
     command: start --user root --pass root memory
-    ports:
-      - "8000:8000"
     restart: unless-stopped
 
   cloud-ui:
@@ -50,8 +45,6 @@ services:
       MINIO_BUCKET: mlops-phase3
       MINIO_FORCE_PATH_STYLE: "true"
       S3_MULTIPART_THRESHOLD_BYTES: "1000000000"
-    ports:
-      - "3000:3000"
     restart: unless-stopped
 
   hm-backend:

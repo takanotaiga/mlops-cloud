@@ -7,17 +7,12 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     tmpfs:
       - /data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     restart: unless-stopped
 
   database:
     image: surrealdb/surrealdb:v2.3
     user: "0:0"
     command: start --user root --pass root memory
-    ports:
-      - "8000:8000"
     restart: unless-stopped
 
   backend-test:
